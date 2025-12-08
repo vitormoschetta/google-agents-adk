@@ -20,8 +20,9 @@ import (
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
-	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
+	"google.golang.org/adk/runner"
+	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/mcptoolset"
 )
@@ -39,29 +40,27 @@ type ChatResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
-// Session representa uma sessão de conversação
-type Session struct {
-	ID        string
-	Model     model.LLM
-	ModelName string
-	Toolsets  []tool.Toolset
-	History   []*genai.Content
-	mu        sync.Mutex
+// ChatSession representa uma sessão de conversação HTTP
+type ChatSession struct {
+	ID      string
+	Agent   agent.Agent
+	History []*genai.Content
+	mu      sync.Mutex
 }
 
-// SessionManager gerencia sessões de conversação
+// SessionManager gerencia sessões de conversação HTTP
 type SessionManager struct {
-	sessions map[string]*Session
+	sessions map[string]*ChatSession
 	mu       sync.RWMutex
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		sessions: make(map[string]*Session),
+		sessions: make(map[string]*ChatSession),
 	}
 }
 
-func (sm *SessionManager) GetOrCreate(sessionID string, m model.LLM, modelName string, toolsets []tool.Toolset) *Session {
+func (sm *SessionManager) GetOrCreate(sessionID string, a agent.Agent) *ChatSession {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
@@ -69,19 +68,17 @@ func (sm *SessionManager) GetOrCreate(sessionID string, m model.LLM, modelName s
 		sessionID = generateSessionID()
 	}
 
-	if session, exists := sm.sessions[sessionID]; exists {
-		return session
+	if chatSession, exists := sm.sessions[sessionID]; exists {
+		return chatSession
 	}
 
-	session := &Session{
-		ID:        sessionID,
-		Model:     m,
-		ModelName: modelName,
-		Toolsets:  toolsets,
-		History:   []*genai.Content{},
+	chatSession := &ChatSession{
+		ID:      sessionID,
+		Agent:   a,
+		History: []*genai.Content{},
 	}
-	sm.sessions[sessionID] = session
-	return session
+	sm.sessions[sessionID] = chatSession
+	return chatSession
 }
 
 func generateSessionID() string {
@@ -131,6 +128,33 @@ func startHTTPServer(ctx context.Context) {
 		log.Fatalf("Failed to create MCP tool set: %v", err)
 	}
 
+	// Create LLMAgent with MCP tool set
+	a, err := llmagent.New(llmagent.Config{
+		Name:        "helper_agent",
+		Model:       llmModel,
+		Description: "Helper agent with MCP tools.",
+		Instruction: "You are a helpful assistant that helps users with various tasks using MCP tools.",
+		Toolsets: []tool.Toolset{
+			mcpToolSet,
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed to create agent: %v", err)
+	}
+
+	// Create session service (in-memory for HTTP server)
+	sessionService := session.InMemoryService()
+
+	// Create runner for executing the agent
+	agentRunner, err := runner.New(runner.Config{
+		AppName:        "go-adk-http-server",
+		Agent:          a,
+		SessionService: sessionService,
+	})
+	if err != nil {
+		log.Fatalf("Failed to create runner: %v", err)
+	}
+
 	sessionManager := NewSessionManager()
 
 	// Create a standard net/http ServeMux
@@ -163,58 +187,65 @@ func startHTTPServer(ctx context.Context) {
 			return
 		}
 
-		// Obter ou criar sessão
-		sess := sessionManager.GetOrCreate(req.SessionID, llmModel, "gemini-2.5-flash", []tool.Toolset{mcpToolSet})
+		// Obter ou criar sessão HTTP (para tracking local)
+		chatSess := sessionManager.GetOrCreate(req.SessionID, a)
 
-		sess.mu.Lock()
-		defer sess.mu.Unlock()
+		chatSess.mu.Lock()
+		defer chatSess.mu.Unlock()
 
-		// Executar o modelo com a mensagem
-		log.Printf("Processing message in session %s: %s", sess.ID, req.Message)
+		// Executar o agente com a mensagem usando o runner
+		log.Printf("Processing message in session %s: %s", chatSess.ID, req.Message)
 
-		// Adicionar mensagem do usuário ao histórico
+		// Criar contexto de execução
+		execCtx := context.Background()
+
+		// Verificar se a sessão existe no SessionService do ADK, se não criar
+		_, err := sessionService.Get(execCtx, &session.GetRequest{
+			AppName:   "go-adk-http-server",
+			SessionID: chatSess.ID,
+		})
+		if err != nil {
+			// Sessão não existe, tentar criar nova
+			_, createErr := sessionService.Create(execCtx, &session.CreateRequest{
+				AppName:   "go-adk-http-server",
+				SessionID: chatSess.ID,
+				UserID:    "default-user",
+			})
+			if createErr != nil && !strings.Contains(createErr.Error(), "already exists") {
+				// Erro real (não é "já existe")
+				log.Printf("Error creating session in service: %v", createErr)
+				json.NewEncoder(w).Encode(ChatResponse{
+					Error:     fmt.Sprintf("Failed to create session: %v", createErr),
+					SessionID: chatSess.ID,
+				})
+				return
+			}
+		}
+
+		// Criar conteúdo do usuário
 		userContent := &genai.Content{
 			Role: "user",
 			Parts: []*genai.Part{
 				{Text: req.Message},
 			},
 		}
-		sess.History = append(sess.History, userContent)
 
-		// Criar contexto de execução
-		execCtx := context.Background()
-
-		// Preparar a requisição para o modelo
-		llmRequest := model.LLMRequest{
-			Model:    sess.ModelName,
-			Contents: sess.History,
-			Config: &genai.GenerateContentConfig{
-				SystemInstruction: &genai.Content{
-					Role: "user",
-					Parts: []*genai.Part{
-						{Text: "You are a helpful assistant that helps users with various tasks using MCP tools."},
-					},
-				},
-			},
-		}
-
-		// Gerar resposta usando o modelo
+		// Usar o runner para executar o agente com as ferramentas MCP
 		var responseText strings.Builder
 		var lastError error
-		var lastResponse *model.LLMResponse
 
-		for response, err := range sess.Model.GenerateContent(execCtx, &llmRequest, false) {
+		// O runner.Run executa o agente e retorna eventos de sessão
+		for event, err := range agentRunner.Run(execCtx, "default-user", chatSess.ID, userContent, agent.RunConfig{}) {
 			if err != nil {
 				lastError = err
-				log.Printf("Error generating response: %v", err)
+				log.Printf("Error running agent: %v", err)
 				break
 			}
 
-			if response != nil {
-				lastResponse = response
-				// Extrair texto da resposta
-				if response.Content != nil && len(response.Content.Parts) > 0 {
-					for _, part := range response.Content.Parts {
+			if event != nil && event.Content != nil {
+				// Extrair texto de todas as partes do conteúdo
+				if len(event.Content.Parts) > 0 {
+					for _, part := range event.Content.Parts {
 						if part.Text != "" {
 							responseText.WriteString(part.Text)
 						}
@@ -226,14 +257,9 @@ func startHTTPServer(ctx context.Context) {
 		if lastError != nil {
 			json.NewEncoder(w).Encode(ChatResponse{
 				Error:     fmt.Sprintf("Failed to process message: %v", lastError),
-				SessionID: sess.ID,
+				SessionID: chatSess.ID,
 			})
 			return
-		}
-
-		// Adicionar resposta do modelo ao histórico
-		if lastResponse != nil && lastResponse.Content != nil {
-			sess.History = append(sess.History, lastResponse.Content)
 		}
 
 		responseStr := responseText.String()
@@ -241,12 +267,23 @@ func startHTTPServer(ctx context.Context) {
 			responseStr = "O agente processou a mensagem, mas não retornou uma resposta."
 		}
 
-		log.Printf("Agent response in session %s: %s", sess.ID, responseStr)
+		log.Printf("Agent response in session %s: %s", chatSess.ID, responseStr)
 
 		// Retornar a resposta
 		json.NewEncoder(w).Encode(ChatResponse{
 			Response:  responseStr,
-			SessionID: sess.ID,
+			SessionID: chatSess.ID,
+		})
+	})
+
+	// MCP Tools endpoint - lista as ferramentas disponíveis
+	mux.HandleFunc("/api/tools", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"message":      "MCP tools are available through the agent",
+			"note":         "To see available tools, ask the agent 'What tools do you have available?' in a chat message",
+			"mcp_endpoint": mcpEndpoint,
 		})
 	})
 
