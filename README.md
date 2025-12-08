@@ -7,9 +7,12 @@ Aplicação Go que implementa um agente de IA usando **Google ADK (Agent Develop
 - ✅ **Google ADK** - Framework oficial do Google para desenvolvimento de agentes
 - ✅ **Gemini 2.5 Flash** - Modelo de IA avançado e rápido do Google
 - ✅ **MCP Integration** - Model Context Protocol para comunicação com ferramentas externas
-- ✅ **Full Launcher** - Interface de linha de comando completa para interação
+- ✅ **Dual Mode** - Modo CLI e modo HTTP Server
+- ✅ **REST API** - Endpoint HTTP para integração com aplicações web
+- ✅ **Session Management** - Gerenciamento de sessões de conversação
 - ✅ **Environment Variables** - Configuração segura via variáveis de ambiente
 - ✅ **Context Management** - Gerenciamento adequado de contexto e sinais de interrupção
+- ✅ **Graceful Shutdown** - Desligamento seguro do servidor HTTP
 - ✅ **Extensível** - Fácil adição de novos toolsets MCP
 
 ## 📋 Pré-requisitos
@@ -56,6 +59,9 @@ GOOGLE_API_KEY=sua_chave_api_aqui
 # Endpoint do servidor MCP
 MCP_ENDPOINT=http://localhost:3000/mcp
 
+# Modo de execução: "true" para servidor HTTP, "false" ou vazio para CLI
+RUN_HTTP_SERVER=false
+
 # GitHub PAT (opcional, se usar modo GitHub)
 GITHUB_PAT=seu_github_token_aqui
 ```
@@ -75,14 +81,16 @@ go run main.go
 
 A aplicação iniciará em modo CLI interativo.
 
-## 💬 Modo de Uso
+## 💬 Modos de Uso
 
-A aplicação executa via **linha de comando** usando o **Full Launcher** do ADK. Ao rodar, você pode:
+A aplicação pode executar em **dois modos**: CLI (linha de comando) ou HTTP Server (API REST).
 
-### Interação via CLI
+### 🖥️ Modo CLI (Padrão)
+
+Execute a aplicação em modo interativo via linha de comando:
 
 ```bash
-# Executar modo interativo
+# Certifique-se que RUN_HTTP_SERVER=false ou não está definido no .env
 go run main.go
 
 # O agente aguardará suas mensagens no terminal
@@ -90,14 +98,114 @@ go run main.go
 # Use Ctrl+C para sair
 ```
 
-### Exemplo de Uso
-
+**Exemplo:**
 ```
 $ go run main.go
 > Como posso ajudá-lo?
 Olá! Preciso de ajuda com...
 
 > [Agente responde usando Gemini 2.5 Flash e ferramentas MCP]
+```
+
+### 🌐 Modo HTTP Server
+
+Execute a aplicação como servidor HTTP com API REST:
+
+```bash
+# Configure no .env: RUN_HTTP_SERVER=true
+# Ou execute diretamente:
+RUN_HTTP_SERVER=true go run main.go
+```
+
+O servidor iniciará na porta `8080` com os seguintes endpoints:
+
+#### Endpoints Disponíveis
+
+**1. POST /api/chat** - Enviar mensagem para o agente
+
+```bash
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Hello, what can you do?",
+    "session_id": "optional-session-id"
+  }'
+```
+
+**Resposta:**
+```json
+{
+  "response": "Mensagem recebida: Hello, what can you do?...",
+  "session_id": "20251208143022"
+}
+```
+
+**2. GET /health** - Health check
+
+```bash
+curl http://localhost:8080/health
+```
+
+**Resposta:** `OK`
+
+**3. GET /** - Informações do serviço
+
+```bash
+curl http://localhost:8080/
+```
+
+**Resposta:**
+```json
+{
+  "service": "ADK Agent with MCP Tools",
+  "endpoints": {
+    "chat": {
+      "url": "http://localhost:8080/api/chat",
+      "method": "POST",
+      "description": "Send a message to the agent",
+      "example": {
+        "message": "Hello, how can you help me?",
+        "session_id": "optional-session-id"
+      }
+    },
+    "health": {
+      "url": "http://localhost:8080/health",
+      "method": "GET",
+      "description": "Health check endpoint"
+    }
+  },
+  "agent": {
+    "name": "helper_agent",
+    "description": "Helper agent with MCP tools"
+  }
+}
+```
+
+#### Gerenciamento de Sessões
+
+O servidor HTTP suporta **sessões de conversação**:
+
+- Se você **não** fornecer um `session_id`, um novo será criado automaticamente
+- Se você **fornecer** um `session_id` existente, a conversa continuará no contexto dessa sessão
+- Use o `session_id` retornado para manter o contexto da conversação
+
+**Exemplo de conversa com sessão:**
+
+```bash
+# Primeira mensagem - cria nova sessão
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Meu nome é João"}'
+# Resposta: {"response": "...", "session_id": "20251208143022"}
+
+# Segunda mensagem - usa a mesma sessão
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Qual é o meu nome?",
+    "session_id": "20251208143022"
+  }'
+# O agente lembrará que você disse que se chama João
 ```
 
 ## 🔧 Componentes Principais
@@ -268,11 +376,16 @@ Certifique-se de que o servidor MCP está rodando e acessível no endpoint confi
 
 ## 🚀 Próximos Passos
 
+- [x] Criar API REST wrapper com servidor HTTP
+- [x] Implementar gerenciamento de sessões
+- [ ] Integrar execução completa do agente via HTTP
 - [ ] Adicionar suporte a múltiplos toolsets MCP
 - [ ] Implementar logging estruturado
 - [ ] Adicionar testes unitários
-- [ ] Criar API REST wrapper (opcional)
 - [ ] Adicionar métricas e observabilidade
+- [ ] Implementar autenticação para API REST
+- [ ] Adicionar rate limiting
+- [ ] Criar cliente web (frontend) para o agente
 
 ## 👨‍💻 Autor
 

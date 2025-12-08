@@ -1,0 +1,26 @@
+### Chat - Primeira Mensagem (com session_id customizado)
+POST http://localhost:8080/api/chat
+Content-Type: application/json
+
+{
+  "message": "Olá! Meu nome é Vitor",
+  "session_id": "minha-sessao-customizada-001"
+}
+
+### Chat - Mensagem na mesma sessão customizada
+POST http://localhost:8080/api/chat
+Content-Type: application/json
+
+{
+  "message": "Olá! Quais as tools disponíveis no meu MCP conectado?",
+  "session_id": "minha-sessao-customizada-001"
+}
+
+### Chat - Testando a memória da sessão
+POST http://localhost:8080/api/chat
+Content-Type: application/json
+
+{
+  "message": "Qual é o meu nome?",
+  "session_id": "minha-sessao-customizada-001"
+}
