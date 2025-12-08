@@ -1,0 +1,36 @@
+# Binários
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+go-adk
+
+# Arquivos de teste
+*.test
+*.out
+
+# Dependências
+vendor/
+go.sum
+
+# Variáveis de ambiente
+.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Env
+.env
+
