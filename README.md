@@ -208,14 +208,29 @@ model, err := gemini.NewModel(ctx, "gemini-2.5-flash", &genai.ClientConfig{
 
 ```
 go-adk/
-├── main.go           # Código principal da aplicação
-├── go.mod            # Dependências do Go
-├── go.sum            # Checksums das dependências
-├── .env              # Variáveis de ambiente (não commitado - SEGURO)
-├── .env.example      # Exemplo de configuração
-├── .gitignore        # Arquivos ignorados pelo Git
-├── .vscode/          # Configurações do VS Code (não commitado)
-└── README.md         # Esta documentação
+├── cmd/
+│   └── main.go           # Ponto de entrada da aplicação
+├── internal/
+│   ├── handler/          # Handlers HTTP (controllers)
+│   │   └── handler.go
+│   ├── model/            # Modelos de dados (DTOs)
+│   │   ├── chat.go       # Request/Response models
+│   │   └── session.go
+│   ├── server/           # Configuração do servidor
+│   │   └── server.go
+│   └── service/          # Lógica de negócio
+│       └── session_manager.go  # Gerenciamento de sessões
+├── test/                 # Arquivos de teste HTTP
+│   ├── info.http
+│   ├── memory.http
+│   └── send_message.http
+├── go.mod                # Dependências do Go
+├── go.sum                # Checksums das dependências
+├── .env                  # Variáveis de ambiente (não commitado - SEGURO)
+├── .env.example          # Exemplo de configuração
+├── .gitignore            # Arquivos ignorados pelo Git
+├── HTTP_USAGE.md         # Documentação de uso da API HTTP
+└── README.md             # Esta documentação
 ```
 
 ## 🔒 Segurança

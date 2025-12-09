@@ -20,7 +20,7 @@ import (
 	"google.golang.org/adk/tool/mcptoolset"
 	"google.golang.org/genai"
 
-	"github.com/vitormoschetta/go-adk/internal/model"
+	"github.com/vitormoschetta/go-adk/internal/service"
 )
 
 // AuthenticatedTransport adiciona headers de autenticação às requisições HTTP
@@ -53,7 +53,7 @@ func (t *AuthenticatedTransport) RoundTrip(req *http.Request) (*http.Response, e
 type Server struct {
 	Agent          agent.Agent
 	AgentRunner    *runner.Runner
-	SessionManager *model.SessionManager
+	SessionManager *service.SessionManager
 	SessionService session.Service
 	McpEndpoint    string
 	Router         chi.Router
@@ -136,7 +136,7 @@ func NewServer(ctx context.Context) (*Server, error) {
 	s := &Server{
 		Agent:          a,
 		AgentRunner:    agentRunner,
-		SessionManager: model.NewSessionManager(),
+		SessionManager: service.NewSessionManager(),
 		SessionService: sessionService,
 		McpEndpoint:    mcpEndpoint,
 	}
