@@ -1,9 +1,9 @@
-### Chat - Mensagem na mesma sessão customizada
+### Chat - Primeira Mensagem (com session_id customizado)
 POST http://localhost:8080/api/chat
 Content-Type: application/json
 
 {
-  "message": "Olá! Quais as tools disponíveis no meu MCP conectado?",
+  "message": "Olá! Meu nome é Vitor",
   "session_id": "minha-sessao-customizada-001"
 }
 
@@ -12,6 +12,6 @@ POST http://localhost:8080/api/chat
 Content-Type: application/json
 
 {
-  "message": "Principais problemas relacionados a pdd?",
+  "message": "Qual é o meu nome?",
   "session_id": "minha-sessao-customizada-001"
 }
