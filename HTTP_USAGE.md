@@ -4,36 +4,19 @@ Este documento fornece exemplos práticos de como usar o servidor HTTP do ADK Ag
 
 ## 🚀 Iniciando o Servidor
 
-### Opção 1: Variável de Ambiente no .env
-
-Edite o arquivo `.env` e configure:
-
-```bash
-RUN_HTTP_SERVER=true
-```
-
-Depois execute:
+### Opção 1: Executar diretamente
 
 ```bash
 go run main.go
 ```
 
-### Opção 2: Variável de Ambiente na Linha de Comando
-
-```bash
-RUN_HTTP_SERVER=true go run main.go
-```
-
-### Opção 3: Compilar e Executar
+### Opção 2: Compilar e Executar
 
 ```bash
 # Compilar
 go build -o adk-agent main.go
 
-# Executar em modo HTTP
-RUN_HTTP_SERVER=true ./adk-agent
-
-# Ou executar em modo CLI (padrão)
+# Executar
 ./adk-agent
 ```
 

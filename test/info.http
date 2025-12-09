@@ -1,2 +1,8 @@
 ### Informações do Serviço
 GET http://localhost:8080/
+
+### Health Check
+GET http://localhost:8080/health
+
+### Listagem de Ferramentas MCP
+GET http://localhost:8080/api/tools

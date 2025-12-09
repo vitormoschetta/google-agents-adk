@@ -7,8 +7,8 @@ Aplicação Go que implementa um agente de IA usando **Google ADK (Agent Develop
 - ✅ **Google ADK** - Framework oficial do Google para desenvolvimento de agentes
 - ✅ **Gemini 2.5 Flash** - Modelo de IA avançado e rápido do Google
 - ✅ **MCP Integration** - Model Context Protocol para comunicação com ferramentas externas
-- ✅ **Dual Mode** - Modo CLI e modo HTTP Server
-- ✅ **REST API** - Endpoint HTTP para integração com aplicações web
+- ✅ **HTTP Server** - Servidor HTTP com API REST
+- ✅ **REST API** - Endpoints HTTP para integração com aplicações web
 - ✅ **Session Management** - Gerenciamento de sessões de conversação
 - ✅ **Environment Variables** - Configuração segura via variáveis de ambiente
 - ✅ **Context Management** - Gerenciamento adequado de contexto e sinais de interrupção
@@ -58,12 +58,6 @@ GOOGLE_API_KEY=sua_chave_api_aqui
 
 # Endpoint do servidor MCP
 MCP_ENDPOINT=http://localhost:3000/mcp
-
-# Modo de execução: "true" para servidor HTTP, "false" ou vazio para CLI
-RUN_HTTP_SERVER=false
-
-# GitHub PAT (opcional, se usar modo GitHub)
-GITHUB_PAT=seu_github_token_aqui
 ```
 
 ### 3. Instale as dependências
@@ -79,45 +73,11 @@ go mod tidy
 go run main.go
 ```
 
-A aplicação iniciará em modo CLI interativo.
+A aplicação iniciará o servidor HTTP na porta `8080`.
 
-## 💬 Modos de Uso
+## 💬 Uso da API
 
-A aplicação pode executar em **dois modos**: CLI (linha de comando) ou HTTP Server (API REST).
-
-### 🖥️ Modo CLI (Padrão)
-
-Execute a aplicação em modo interativo via linha de comando:
-
-```bash
-# Certifique-se que RUN_HTTP_SERVER=false ou não está definido no .env
-go run main.go
-
-# O agente aguardará suas mensagens no terminal
-# Digite suas perguntas e pressione Enter
-# Use Ctrl+C para sair
-```
-
-**Exemplo:**
-```
-$ go run main.go
-> Como posso ajudá-lo?
-Olá! Preciso de ajuda com...
-
-> [Agente responde usando Gemini 2.5 Flash e ferramentas MCP]
-```
-
-### 🌐 Modo HTTP Server
-
-Execute a aplicação como servidor HTTP com API REST:
-
-```bash
-# Configure no .env: RUN_HTTP_SERVER=true
-# Ou execute diretamente:
-RUN_HTTP_SERVER=true go run main.go
-```
-
-O servidor iniciará na porta `8080` com os seguintes endpoints:
+A aplicação executa como servidor HTTP com API REST na porta `8080` com os seguintes endpoints:
 
 #### Endpoints Disponíveis
 
